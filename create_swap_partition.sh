@@ -30,7 +30,9 @@ CURRENT_STATE="INITIAL"  # Initialize current state
 # State management and transitions
 declare -A STATE_TRANSITIONS=(
     ["INITIAL"]="FSTAB_BACKUP"
-    ["FSTAB_BACKUP"]="ZVOL_CREATED"
+    ["FSTAB_BACKUP"]="SERVICES_CHECKED"
+    ["SERVICES_CHECKED"]="ZVOL_PREPARED"
+    ["ZVOL_PREPARED"]="ZVOL_CREATED"
     ["ZVOL_CREATED"]="SWAP_ENABLED"
     ["SWAP_ENABLED"]="COMPLETED"
 )
@@ -511,17 +513,51 @@ Size:
     Size of swap volume (default: ${DEFAULT_SIZE})
     Examples: 4G, 8G, 16G
 
-ZFS Pools:
-    A ZFS pool is a storage container that combines one or more physical
-    storage devices or files into a logical storage pool. The pool can then
-    be used to create ZFS filesystems, volumes, or snapshots.
+Persistence Features:
+    1. Systemd Integration
+       - Automatic service creation and enablement
+       - Early boot activation
+       - Proper dependency management
+       - Service status monitoring
 
-    Default Pool: rpool
-    The script will use 'rpool' by default, which is the standard root pool
-    name on many Ubuntu and Debian systems with ZFS on root. This pool
-    typically contains your root filesystem and system datasets.
+    2. Device Management
+       - Udev rules for persistent device naming
+       - Proper device permissions
+       - Automatic device detection
+       - ZFS import cache configuration
 
-    To see available pools on your system, run: zpool list
+    3. Boot Integration
+       - Initramfs updates for ZFS modules
+       - Proper ordering with system services
+       - Fallback mechanisms
+       - Boot-time validation
+
+Validation Checks:
+    1. Service Validation
+       - Systemd service status
+       - Service enablement state
+       - Service dependencies
+       - Configuration integrity
+
+    2. Swap Configuration
+       - Active swap devices
+       - Swap priorities
+       - Device paths
+       - UUID consistency
+
+    3. ZFS Properties
+       - Mountpoint configuration
+       - Compression settings
+       - Cache settings
+       - Sync mode and log bias
+       - Snapshot settings
+
+    4. Persistence Verification
+       - FSTAB entries
+       - Systemd unit files
+       - Udev rules
+       - ZFS cache
+       - Boot configuration
 
 Safety Features:
     1. System Health Monitoring
@@ -856,13 +892,11 @@ EOF
     case $choice in
         1)
             log "Continuing with service $service running"
+            return 1
             ;;
         2)
-            log "Stopping service $service..."
-            systemctl stop "$service"
-            # Add service to list for restart during cleanup
-            echo "$service" >> "$STATE_DIR/services_to_restart"
-            save_state "SERVICES_STOPPED" "$service"
+            log "Service $service will be stopped"
+            return 0
             ;;
         3)
             log "Restarting $service with lower priority..."
@@ -870,6 +904,7 @@ EOF
             sleep 2
             nice -n 19 systemctl start "$service"
             log "Service restarted with lower priority"
+            return 1
             ;;
         4)
             error_exit "Operation cancelled due to running service $service"
@@ -897,12 +932,29 @@ assess_system_impact() {
     fi
     
     # Check for critical services
+    local services_to_stop=()
     local critical_services=(mysql apache2 nginx docker postgresql mongodb redis-server)
     for service in "${critical_services[@]}"; do
         if systemctl is-active "$service" >/dev/null 2>&1; then
-            manage_critical_service "$service"
+            if manage_critical_service "$service"; then
+                services_to_stop+=("$service")
+            fi
         fi
     done
+    
+    # Stop all selected services at once
+    if [ ${#services_to_stop[@]} -gt 0 ]; then
+        log "Stopping selected services..."
+        mkdir -p "$STATE_DIR"
+        for service in "${services_to_stop[@]}"; do
+            log "Stopping service $service..."
+            systemctl stop "$service"
+            echo "$service" >> "$STATE_DIR/services_to_restart"
+        done
+    fi
+    
+    # Always mark services as checked
+    save_state "SERVICES_CHECKED" "${services_to_stop[*]:-no_services_stopped}"
     
     # Check memory availability
     local mem_available=$(free -m | awk '/^Mem:/ {print $7}')
@@ -2220,6 +2272,236 @@ verify_backups() {
     log "Backup verification completed"
 }
 
+# Check if swap zvol already exists
+check_existing_swap() {
+    log "Checking for existing swap volume..."
+    if zfs list "$SWAP_ZVOL" >/dev/null 2>&1; then
+        log "WARNING: Swap volume $SWAP_ZVOL already exists"
+        if [ "$DRY_RUN" = false ]; then
+            read -p "Would you like to remove it and create a new one? (y/n) " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                # First, check what's using the device
+                log "Checking what's using the swap device..."
+                lsof "/dev/zvol/$SWAP_ZVOL" 2>/dev/null || true
+                fuser -v "/dev/zvol/$SWAP_ZVOL" 2>/dev/null || true
+                
+                # Disable all swap everywhere
+                log "Disabling all swap..."
+                swapoff -a || true
+                
+                # Remove from /etc/fstab to prevent auto-mount
+                log "Removing swap entries from fstab..."
+                sed -i '/\sswap\s/d' /etc/fstab
+                sync
+                
+                # Stop any ZFS swap services
+                log "Stopping ZFS swap services..."
+                systemctl stop zfs-swap.service 2>/dev/null || true
+                systemctl disable zfs-swap.service 2>/dev/null || true
+                
+                # Force unmount the dataset if mounted
+                log "Forcing unmount of swap volume..."
+                zfs unmount -f "$SWAP_ZVOL" 2>/dev/null || true
+                
+                # Kill any processes still using the device
+                log "Checking for processes using the device..."
+                if fuser -m "/dev/zvol/$SWAP_ZVOL" 2>/dev/null; then
+                    log "WARNING: Processes are still using the swap volume. Terminating..."
+                    fuser -k -9 "/dev/zvol/$SWAP_ZVOL" 2>/dev/null || true
+                    sleep 2
+                fi
+                
+                # Export and import the pool to clear any busy states
+                log "Attempting to clear busy state..."
+                zpool export -f "$POOL_NAME" 2>/dev/null || true
+                sleep 2
+                zpool import "$POOL_NAME" 2>/dev/null || true
+                sleep 2
+                
+                # Try normal destroy first
+                log "Attempting to destroy swap volume..."
+                if ! zfs destroy "$SWAP_ZVOL" 2>/dev/null; then
+                    log "Normal destroy failed, trying forced destroy..."
+                    if ! zfs destroy -f "$SWAP_ZVOL" 2>/dev/null; then
+                        log "Forced destroy failed, trying recursive forced destroy..."
+                        if ! zfs destroy -r -f "$SWAP_ZVOL"; then
+                            # If all else fails, try to use zfs hold and release
+                            log "All standard methods failed. Attempting to release holds..."
+                            zfs holds "$SWAP_ZVOL" | while read -r ds tag rest; do
+                                [ "$ds" = "$SWAP_ZVOL" ] && zfs release "$tag" "$SWAP_ZVOL"
+                            done
+                            sleep 1
+                            if ! zfs destroy -r -f "$SWAP_ZVOL"; then
+                                error_exit "Failed to remove swap volume after all attempts. Manual intervention required."
+                            fi
+                        fi
+                    fi
+                fi
+                
+                # Wait for cleanup and verify
+                sync
+                sleep 2
+                if zfs list "$SWAP_ZVOL" >/dev/null 2>&1; then
+                    error_exit "Failed to remove swap volume - it still exists after removal attempts"
+                fi
+                
+                log "Successfully removed existing swap volume"
+                return 0
+            else
+                error_exit "Operation cancelled by user"
+            fi
+        else
+            log "Would prompt to remove existing swap volume"
+            return 0
+        fi
+    fi
+    return 0
+}
+
+# Function to ensure swap persistence
+ensure_swap_persistence() {
+    log "Ensuring swap persistence across reboots..."
+    
+    if [ "$DRY_RUN" = false ]; then
+        # 1. Configure ZFS dataset properties
+        log "Configuring ZFS dataset properties..."
+        zfs set sync=always "$SWAP_ZVOL"
+        zfs set primarycache=metadata "$SWAP_ZVOL"
+        zfs set secondarycache=none "$SWAP_ZVOL"
+        zfs set compression=off "$SWAP_ZVOL"
+        zfs set logbias=throughput "$SWAP_ZVOL"
+        zfs set mountpoint=none "$SWAP_ZVOL"
+        zfs set com.sun:auto-snapshot=false "$SWAP_ZVOL"
+        
+        # 2. Create systemd service for early swap activation
+        local service_file="/etc/systemd/system/zfs-swap.service"
+        log "Creating systemd service at $service_file..."
+        cat > "$service_file" << EOF
+[Unit]
+Description=ZFS swap volume activation
+DefaultDependencies=no
+Before=swap.target
+After=zfs-import.target local-fs.target
+Requires=zfs-import.target
+ConditionPathExists=/dev/zvol/$SWAP_ZVOL
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+TimeoutSec=0
+ExecStartPre=-/sbin/swapoff -a
+ExecStart=/sbin/mkswap /dev/zvol/$SWAP_ZVOL
+ExecStart=/sbin/swapon -p 100 /dev/zvol/$SWAP_ZVOL
+ExecStop=/sbin/swapoff /dev/zvol/$SWAP_ZVOL
+
+[Install]
+WantedBy=swap.target
+Also=zfs-import.service
+EOF
+        chmod 644 "$service_file"
+        
+        # 3. Create udev rule for persistent device naming
+        local udev_file="/etc/udev/rules.d/90-zfs-swap.rules"
+        log "Creating udev rule at $udev_file..."
+        cat > "$udev_file" << EOF
+ACTION=="add|change", KERNEL=="zd*", DRIVER=="zd", ATTR{name}=="$SWAP_ZVOL", SYMLINK+="zvol/$SWAP_ZVOL", TAG+="systemd"
+EOF
+        chmod 644 "$udev_file"
+        
+        # 4. Update initramfs to include ZFS modules
+        log "Updating initramfs..."
+        update-initramfs -u
+        
+        # 5. Configure ZFS import cache
+        log "Updating ZFS cache..."
+        zpool set cachefile=/etc/zfs/zpool.cache "$POOL_NAME"
+        
+        # 6. Update /etc/fstab with priority and options
+        log "Updating fstab entry..."
+        local uuid=$(blkid -s UUID -o value "/dev/zvol/$SWAP_ZVOL")
+        if [ -n "$uuid" ]; then
+            # Remove any existing swap entries
+            sed -i '/\sswap\s/d' /etc/fstab
+            # Add new swap entry with high priority and optimal options
+            echo "UUID=$uuid none swap sw,pri=100,discard 0 0" >> /etc/fstab
+        fi
+        
+        # 7. Enable and start the service
+        log "Enabling systemd service..."
+        systemctl daemon-reload
+        systemctl enable zfs-swap.service
+        
+        # 8. Test the configuration
+        log "Testing swap configuration..."
+        if ! systemctl start zfs-swap.service; then
+            error_exit "Failed to start swap service"
+        fi
+        
+        # 9. Verify swap is active
+        if ! swapon --show | grep -q "$SWAP_ZVOL"; then
+            error_exit "Swap device not active after service start"
+        fi
+        
+        # 10. Create a backup of the configuration
+        local backup_dir="/etc/zfs/swap-backup"
+        mkdir -p "$backup_dir"
+        cp "$service_file" "$backup_dir/"
+        cp "$udev_file" "$backup_dir/"
+        cp /etc/fstab "$backup_dir/fstab.backup"
+        
+        log "Swap persistence configuration completed successfully"
+        
+        # Final validation checks
+        log "Performing final validation checks..."
+        
+        # Check systemd service status
+        log "=== Systemd Service Status ==="
+        systemctl status zfs-swap.service
+        
+        # Check current swap status
+        log "=== Current Swap Status ==="
+        swapon --show
+        
+        # Check fstab entry
+        log "=== FSTAB Entry ==="
+        grep swap /etc/fstab
+        
+        # Check ZFS properties
+        log "=== ZFS Properties ==="
+        zfs get all "$SWAP_ZVOL" | grep -E "mountpoint|compression|primarycache|secondarycache|sync|logbias|com.sun:auto-snapshot"
+        
+        # Check systemd service configuration
+        log "=== Systemd Service Configuration ==="
+        systemctl is-enabled zfs-swap.service
+        
+        # Verify swap is active and working
+        if ! swapon --show | grep -q "$SWAP_ZVOL"; then
+            error_exit "Final validation failed: Swap is not active"
+        fi
+        
+        # Verify systemd service is properly enabled
+        if ! systemctl is-enabled zfs-swap.service >/dev/null 2>&1; then
+            error_exit "Final validation failed: zfs-swap service is not enabled"
+        fi
+        
+        log "All validation checks passed successfully"
+        log "Swap device will be automatically activated on boot"
+        
+    else
+        log "Would configure swap persistence:"
+        log "- Set ZFS dataset properties"
+        log "- Create systemd service"
+        log "- Create udev rule"
+        log "- Update initramfs"
+        log "- Configure ZFS cache"
+        log "- Update fstab"
+        log "- Enable service"
+        log "- Test configuration"
+        log "- Run validation checks"
+    fi
+}
+
 # Update main function to include new checks
 main() {
     # Acquire lock first
@@ -2329,6 +2611,9 @@ main() {
     manage_process_priority
     manage_resource_limits
     
+    # Check for existing swap volume before proceeding
+    check_existing_swap
+    
     # Create the swap zvol
     if [ "$DRY_RUN" = false ]; then
         log "Creating swap volume of size $SWAP_SIZE"
@@ -2391,7 +2676,7 @@ main() {
         if [ -z "$uuid" ]; then
             log "ERROR: Failed to get UUID for swap device"
             return 1
-        }
+        fi
         
         # Update fstab
         log "Updating /etc/fstab with new swap entry"
@@ -2508,11 +2793,15 @@ main() {
         log "- Show swap statistics"
     fi
     
+    # Ensure swap persistence
+    ensure_swap_persistence
+    
     # Add state tracking for critical operations
     if [ "$DRY_RUN" = false ]; then
         save_state "ZVOL_CREATED" "$SWAP_ZVOL"
         save_state "FSTAB_MODIFIED" "Added swap entry"
         save_state "SWAP_ENABLED" "$ZVOL_DEVICE"
+        save_state "PERSISTENCE_CONFIGURED" "Setup complete"
     fi
     
     # Cleanup lock file

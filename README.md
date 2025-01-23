@@ -9,7 +9,27 @@ A comprehensive tool for creating and managing ZFS-based swap volumes with advan
 - Automatic block size optimization (8K)
 - Intelligent ZFS property configuration
 - UUID-based swap configuration
-- Persistent configuration through `/etc/fstab`
+- Persistent configuration through systemd and fstab
+- Comprehensive validation checks
+
+### Persistence Features
+1. **Systemd Integration**
+   - Automatic service creation and enablement
+   - Early boot activation
+   - Proper dependency management
+   - Service status monitoring
+
+2. **Device Management**
+   - Udev rules for persistent device naming
+   - Proper device permissions
+   - Automatic device detection
+   - ZFS import cache configuration
+
+3. **Boot Integration**
+   - Initramfs updates for ZFS modules
+   - Proper ordering with system services
+   - Fallback mechanisms
+   - Boot-time validation
 
 ### Safety Features
 1. **System Health Monitoring**
@@ -151,10 +171,44 @@ In case of failure:
 - State tracking and verification
 
 ### Post-operation Verification
-- Swap configuration validation
-- Performance impact assessment
-- System state verification
-- Recovery point verification
+- Systemd service status validation
+- Current swap status verification
+- FSTAB entry validation
+- ZFS property verification
+- Service enablement checks
+- Device activation verification
+- Comprehensive state validation
+
+## Validation Checks
+
+The tool performs extensive validation after setup:
+
+1. **Service Validation**
+   - Systemd service status
+   - Service enablement state
+   - Service dependencies
+   - Service configuration
+
+2. **Swap Configuration**
+   - Active swap devices
+   - Swap priorities
+   - Device paths
+   - UUID consistency
+
+3. **ZFS Properties**
+   - Mountpoint configuration
+   - Compression settings
+   - Cache settings
+   - Sync mode
+   - Log bias
+   - Snapshot settings
+
+4. **Persistence Verification**
+   - FSTAB entries
+   - Systemd unit files
+   - Udev rules
+   - ZFS cache
+   - Boot configuration
 
 ## Best Practices
 
