@@ -1,0 +1,2 @@
+create_swap_partition.sh usr/sbin/zfs-swap-manager
+man/zfs-swap-manager.8 usr/share/man/man8/ 

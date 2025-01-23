@@ -1,0 +1,243 @@
+.TH ZFS-SWAP-MANAGER 8 "January 2024" "Version 1.0.0" "System Administration Commands"
+
+.SH NAME
+zfs-swap-manager \- create and manage ZFS-based swap volumes with advanced safety features
+
+.SH SYNOPSIS
+.B zfs-swap-manager
+[\fIOPTIONS\fR] [\fISIZE\fR]
+
+.SH DESCRIPTION
+.B zfs-swap-manager
+is a comprehensive tool for creating and managing ZFS-based swap volumes. It provides advanced safety features, system monitoring, and automatic recovery capabilities. The tool ensures optimal swap configuration with proper ZFS properties and maintains system stability during the process.
+
+.PP
+The tool implements extensive safety checks, resource monitoring, and state tracking to prevent system instability. It creates a swap volume with optimized properties for swap usage, including 8K block size, throughput-optimized logging, and appropriate compression settings.
+
+.SH OPTIONS
+.TP
+.BR \-h ", " \-\-help
+Display help message and exit
+.TP
+.BR \-d ", " \-\-dry\-run
+Show what would be done without making changes
+.TP
+.BR \-p ", " \-\-pool " " \fINAME\fR
+Specify ZFS pool name (default: rpool)
+.TP
+.BR \-t ", " \-\-test
+Run in test mode with minimal impact (128M volume)
+
+.SH FEATURES
+
+.SS System Health Monitoring
+.PP
+- Real-time CPU load monitoring and management
+.PP
+- Memory pressure detection and handling
+.PP
+- IO latency tracking and optimization
+.PP
+- Network performance monitoring
+.PP
+- Process priority management
+.PP
+- NUMA topology awareness
+
+.SS Resource Management
+.PP
+- ZFS ARC size optimization
+.PP
+- IO scheduler tuning
+.PP
+- Kernel parameter optimization
+.PP
+- Process and IO priority management
+.PP
+- Resource limits control
+
+.SS Security Features
+.PP
+- SELinux/AppArmor context verification
+.PP
+- Secure Boot detection
+.PP
+- Process ancestry verification
+.PP
+- Entropy availability monitoring
+.PP
+- Mandatory Access Control checks
+
+.SS Monitoring and Debugging
+.PP
+- System call tracing
+.PP
+- Performance profiling
+.PP
+- Filesystem event monitoring
+.PP
+- Detailed transaction logging
+.PP
+- Resource usage tracking
+.PP
+- Network resilience checks
+
+.SS Backup and Recovery
+.PP
+- Automatic ZFS snapshots
+.PP
+- Emergency recovery script generation
+.PP
+- Transaction rollback capabilities
+.PP
+- State tracking and verification
+.PP
+- Atomic operations with rollback
+
+.SS Power Management
+.PP
+- CPU frequency governor optimization
+.PP
+- Battery status monitoring
+.PP
+- Thermal throttling detection
+.PP
+- Power state verification
+
+.SH FILES
+.TP
+.I /var/tmp/swap_setup_<timestamp>/logs/setup.log
+Main operation log file
+.TP
+.I /var/tmp/swap_setup_<timestamp>/logs/resources.log
+Resource monitoring log file
+.TP
+.I /var/tmp/swap_setup_<timestamp>/logs/transactions.log
+Transaction log file
+.TP
+.I /var/tmp/swap_setup_<timestamp>/traces/syscalls.log
+System call trace log file
+.TP
+.I /var/tmp/swap_setup_<timestamp>/profile/
+Performance profiling data directory
+.TP
+.I /var/tmp/swap_setup_<timestamp>/errors/
+Error report directory
+.TP
+.I /tmp/emergency_recovery_<timestamp>.sh
+Emergency recovery script
+.TP
+.I /etc/fstab
+System swap configuration file (backed up before modification)
+
+.SH ENVIRONMENT
+.TP
+.B ZFS_SWAP_DEBUG
+Set to 1 to enable debug logging
+
+.SH EXIT STATUS
+.TP
+.B 0
+Success
+.TP
+.B 1
+General error
+.TP
+.B 2
+Invalid arguments
+.TP
+.B 3
+Insufficient permissions
+.TP
+.B 4
+Resource allocation failure
+.TP
+.B 5
+System state error
+.TP
+.B 6
+Transaction failure
+.TP
+.B 7
+Recovery failure
+
+.SH EXAMPLES
+Create a 16GB swap volume:
+.PP
+.nf
+.RS
+sudo zfs-swap-manager 16G
+.RE
+.fi
+
+Perform a dry run for 32GB swap:
+.PP
+.nf
+.RS
+sudo zfs-swap-manager --dry-run 32G
+.RE
+.fi
+
+Use a specific ZFS pool:
+.PP
+.nf
+.RS
+sudo zfs-swap-manager -p mypool 8G
+.RE
+.fi
+
+Run in test mode:
+.PP
+.nf
+.RS
+sudo zfs-swap-manager --test
+.RE
+.fi
+
+.SH DIAGNOSTICS
+The tool provides extensive logging and diagnostics:
+
+.PP
+- All operations are logged with timestamps
+.PP
+- Resource usage is monitored and logged
+.PP
+- System calls are traced in debug mode
+.PP
+- Performance data is collected and analyzed
+.PP
+- Error conditions are logged with context
+.PP
+- Transaction state is tracked and verified
+
+.SH REQUIREMENTS
+.PP
+- ZFS utilities (zfsutils-linux)
+.PP
+- System monitoring tools (sysstat, lm-sensors)
+.PP
+- Network monitoring tools (nethogs, iperf3)
+.PP
+- Debug tools (strace, lsof)
+.PP
+- Resource monitoring tools (numactl, bc)
+.PP
+- Security tools (apparmor-utils, selinux-utils)
+
+.SH BUGS
+Report bugs to <eduardo@aguilar-pelaez.co.uk>
+
+.SH AUTHOR
+Eduardo Aguilar Pelaez <eduardo@aguilar-pelaez.co.uk>
+
+.SH COPYRIGHT
+Copyright \(co 2024 Eduardo Aguilar Pelaez
+
+This is free software; you can redistribute it and/or modify it under the terms of the MIT License.
+
+.SH SEE ALSO
+.BR zfs (8),
+.BR swapon (8),
+.BR swapoff (8),
+.BR fstab (5),
+.BR mkswap (8) 

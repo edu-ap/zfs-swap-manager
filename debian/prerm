@@ -1,0 +1,32 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    remove|upgrade|deconfigure)
+        # Check if any swap volumes are in use
+        if command -v zfs >/dev/null; then
+            for zvol in $(zfs list -H -o name | grep '/swap$'); do
+                if grep -q "/dev/zvol/$zvol" /proc/swaps; then
+                    echo "WARNING: Swap volume $zvol is still in use"
+                    echo "Please disable it manually with: swapoff /dev/zvol/$zvol"
+                fi
+            done
+        fi
+
+        # Clean up temporary files
+        rm -rf /var/tmp/swap_setup_*
+
+        # Keep the log directory but clean old logs
+        find /var/log/zfs-swap-manager -type f -name "*.log" -mtime +30 -delete 2>/dev/null || true
+        ;;
+
+    failed-upgrade)
+        ;;
+
+    *)
+        echo "prerm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+exit 0 

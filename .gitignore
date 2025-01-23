@@ -1,0 +1,36 @@
+# Debian package build files
+debian/.debhelper/
+debian/zfs-swap-manager/
+debian/zfs-swap-manager.debhelper.log
+debian/zfs-swap-manager.substvars
+debian/files
+debian/*.log
+debian/*.substvars
+debian/*.debhelper
+debian/debhelper-build-stamp
+
+# Editor files
+*~
+.*.swp
+.*.swo
+*.bak
+.vscode/
+.idea/
+
+# Build artifacts
+*.deb
+*.changes
+*.buildinfo
+*.dsc
+*.tar.gz
+*.tar.xz
+
+# Logs and temporary files
+*.log
+/var/tmp/swap_setup_*
+.DS_Store
+
+# Test files
+*.test
+*.tmp
+/test/ 

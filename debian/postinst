@@ -1,0 +1,39 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    configure)
+        # Create necessary directories
+        mkdir -p /var/tmp/swap_setup_base
+        chmod 750 /var/tmp/swap_setup_base
+
+        # Check for required tools
+        for tool in zfs zpool mkswap swapon swapoff blkid sha256sum iostat; do
+            if ! command -v "$tool" >/dev/null; then
+                echo "WARNING: Required tool '$tool' not found"
+            fi
+        done
+
+        # Update man database
+        if command -v mandb >/dev/null; then
+            mandb -q
+        fi
+
+        # Verify permissions
+        chmod 755 /usr/sbin/zfs-swap-manager
+
+        # Create log directory if it doesn't exist
+        mkdir -p /var/log/zfs-swap-manager
+        chmod 750 /var/log/zfs-swap-manager
+        ;;
+
+    abort-upgrade|abort-remove|abort-deconfigure)
+        ;;
+
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+exit 0 

@@ -1,0 +1,33 @@
+zfs-swap-manager (1.0.0) unstable; urgency=medium
+
+  * Initial release
+  * Core features:
+    - ZFS-based swap volume creation with 8K block size
+    - Automatic ZFS property optimization
+    - UUID-based swap configuration
+    - Persistent fstab configuration
+  * Safety features:
+    - System health monitoring
+    - Resource management
+    - Security context verification
+    - Performance profiling
+    - Transaction rollback
+    - Emergency recovery
+  * Monitoring capabilities:
+    - CPU load and temperature
+    - Memory pressure
+    - IO latency
+    - Network performance
+    - Process priorities
+  * Recovery mechanisms:
+    - Automatic ZFS snapshots
+    - Transaction logging
+    - State tracking
+    - Emergency recovery script
+  * Test and verification:
+    - Dry run support
+    - Test mode with minimal impact
+    - Comprehensive logging
+    - Performance profiling
+
+ -- Eduardo Aguilar Pelaez <eduardo@aguilar-pelaez.co.uk>  Wed, 24 Jan 2024 01:49:45 +0000

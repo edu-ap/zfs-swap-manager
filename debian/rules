@@ -1,0 +1,16 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_install:
+	install -D -m 0755 create_swap_partition.sh debian/zfs-swap-manager/usr/sbin/zfs-swap-manager
+	install -D -m 0644 man/zfs-swap-manager.8 debian/zfs-swap-manager/usr/share/man/man8/zfs-swap-manager.8
+
+override_dh_installman:
+	dh_installman man/zfs-swap-manager.8
+
+# Add special permissions for the binary
+override_dh_fixperms:
+	dh_fixperms
+	chmod 755 debian/zfs-swap-manager/usr/sbin/zfs-swap-manager 

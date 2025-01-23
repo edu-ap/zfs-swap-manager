@@ -1,0 +1,42 @@
+Source: zfs-swap-manager
+Section: admin
+Priority: optional
+Maintainer: Eduardo Aguilar Pelaez <eduardo@aguilar-pelaez.co.uk>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.0
+Homepage: https://github.com/edu-ap/zfs-swap-manager
+Vcs-Browser: https://github.com/edu-ap/zfs-swap-manager
+Vcs-Git: https://github.com/edu-ap/zfs-swap-manager.git
+Rules-Requires-Root: binary-targets
+
+Package: zfs-swap-manager
+Architecture: all
+Depends: ${misc:Depends},
+         zfsutils-linux,
+         sysstat,
+         lm-sensors,
+         linux-tools-common,
+         apparmor-utils,
+         selinux-utils,
+         nethogs,
+         iperf3,
+         strace,
+         lsof,
+         numactl,
+         bc
+Description: Advanced ZFS swap volume manager with safety features
+ A comprehensive tool for creating and managing ZFS-based swap volumes
+ with advanced safety features, monitoring capabilities, and automatic
+ recovery mechanisms.
+ .
+ Features:
+  * System health monitoring (CPU, memory, IO, network)
+  * Resource management (ZFS ARC, IO scheduler, process priorities)
+  * Security features (SELinux/AppArmor, process verification)
+  * Monitoring and debugging (system calls, performance profiling)
+  * Backup and recovery (snapshots, transaction rollback)
+  * Power management (CPU governor, thermal monitoring)
+ .
+ The tool ensures optimal swap configuration with proper ZFS properties
+ and maintains system stability during the process through extensive
+ safety checks and monitoring. 
