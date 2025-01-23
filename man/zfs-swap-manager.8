@@ -12,7 +12,7 @@ zfs-swap-manager \- create and manage ZFS-based swap volumes with advanced safet
 is a comprehensive tool for creating and managing ZFS-based swap volumes. It provides advanced safety features, system monitoring, and automatic recovery capabilities. The tool ensures optimal swap configuration with proper ZFS properties and maintains system stability during the process.
 
 .PP
-The tool implements extensive safety checks, resource monitoring, and state tracking to prevent system instability. It creates a swap volume with optimized properties for swap usage, including 8K block size, throughput-optimized logging, and appropriate compression settings.
+The tool implements extensive safety checks, resource monitoring, and state tracking to prevent system instability. It creates a swap volume with optimized properties for swap usage, including 8K block size, throughput-optimized logging, and appropriate compression settings. The tool also sets up proper systemd integration for persistent swap activation across reboots.
 
 .SH OPTIONS
 .TP
@@ -103,6 +103,84 @@ Run in test mode with minimal impact (128M volume)
 - Thermal throttling detection
 .PP
 - Power state verification
+
+.SH PERSISTENCE FEATURES
+
+.SS Systemd Integration
+.PP
+- Automatic service creation and enablement
+.PP
+- Early boot activation with proper dependencies
+.PP
+- Service status monitoring and validation
+.PP
+- Fallback mechanisms for reliability
+
+.SS Device Management
+.PP
+- Udev rules for persistent device naming
+.PP
+- Proper device permissions and ownership
+.PP
+- Automatic device detection
+.PP
+- ZFS import cache configuration
+
+.SS Boot Integration
+.PP
+- Initramfs updates for ZFS modules
+.PP
+- Proper ordering with system services
+.PP
+- Boot-time validation
+.PP
+- Recovery mechanisms
+
+.SH VALIDATION CHECKS
+
+.SS Service Validation
+.PP
+- Systemd service status verification
+.PP
+- Service enablement state checks
+.PP
+- Service dependency validation
+.PP
+- Configuration file integrity
+
+.SS Swap Configuration
+.PP
+- Active swap device verification
+.PP
+- Swap priority validation
+.PP
+- Device path consistency
+.PP
+- UUID verification
+
+.SS ZFS Properties
+.PP
+- Mountpoint configuration checks
+.PP
+- Compression settings validation
+.PP
+- Cache configuration verification
+.PP
+- Sync mode and log bias checks
+.PP
+- Snapshot settings validation
+
+.SS Persistence Verification
+.PP
+- FSTAB entry validation
+.PP
+- Systemd unit file checks
+.PP
+- Udev rule verification
+.PP
+- ZFS cache consistency
+.PP
+- Boot configuration validation
 
 .SH FILES
 .TP
